@@ -6,18 +6,23 @@ class modeloIniciarSesion():
     
     def iniciar_sesion(self):
         
-        usuario = request.json.get('usuario')
-        contrasena = request.json.get('contrasena')
+        datos = request.json
+        email = datos.get('email')
+        password = datos.get('password')
         
-        # nombre_tabla = 'Tabla_usuarios'
-        response = supabase.table('TABLA_USUARIOS').select('rol','cedula').eq('usuario', usuario).eq('contrasena', contrasena).execute()
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         
-        if (len(response.data) == 0 ):
+        if 'error' in response:
             return jsonify({"msg": "Credenciales inválidas"}), 401
         
-        cedula = response.data[0]['cedula']
-        rol = response.data[0]['rol']
-        access_token = create_access_token(identity = usuario)
-            
-        return jsonify({"access_token": access_token, "acceso": "AUTORIZADO", "cedula": cedula, "rol": rol}), 200
-            
+        access_token = response.session.access_token if response.session else None
+    
+        tabla_usuario = supabase.table('TABLA_USUARIOS')
+        try:
+            api_response = tabla_usuario.select('*').eq('email', email).execute()
+            data_usuario = api_response.data
+            print(api_response.data)# Extract data from APIResponse object
+        except Exception as e:
+            return jsonify({"msg": "Error al obtener los datos del usuario: " + str(e)}), 500
+    
+        return jsonify({"acceso": "AUTORIZADO", "usuario": data_usuario, "access_token": access_token}), 200
